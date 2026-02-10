@@ -79,6 +79,17 @@ function M:init(options)
 	if self.options.colors then
 		apply_color_overrides(self.options.colors)
 	end
+
+	-- Refresh lualine immediately when grapple tags change so the statusline
+	-- updates without waiting for the next CursorMoved/ModeChanged event.
+	vim.api.nvim_create_autocmd("User", {
+		pattern = "GrappleUpdate",
+		callback = function()
+			require("lualine").refresh()
+		end,
+	})
+end
+
 end
 
 function M:update_status()
