@@ -3,14 +3,22 @@ local M = require("lualine.component"):extend()
 local default_options = {
 	--- Number of tag slots to display
 	number_of_tags = 4,
-	--- Highlight group for brackets
-	highlight_bracket = "Punctuation",
-	--- Highlight group for the tag index number
-	highlight_index = "Number",
-	--- Highlight group for the active (current) tag name
-	highlight_name_active = "Folded",
-	--- Highlight group for inactive tag names
-	highlight_name_inactive = "lualine_c_normal",
+	--- Override highlight groups via config.
+	--- Keys are: Bracket, BracketActive, Index, IndexActive, Name, NameActive.
+	--- Values are highlight definition tables (same as nvim_set_hl opts).
+	---@type table<string, vim.api.keyset.highlight>|nil
+	colors = nil,
+}
+
+local hl_prefix = "LualineGrapple"
+
+local hl_keys = {
+	"Bracket",
+	"BracketActive",
+	"Index",
+	"IndexActive",
+	"Name",
+	"NameActive",
 }
 
 ---Get the foreground color (as integer) from a highlight group
@@ -27,26 +35,33 @@ local function get_bg(name)
 	return vim.api.nvim_get_hl(0, { name = name, link = false }).bg
 end
 
----Ensure custom highlight groups exist for both active and inactive states.
----Foreground comes from the configured bracket/index groups, background
----matches the surrounding name highlight so there are no visual artifacts.
----@param opts table
-local function ensure_highlights(opts)
-	local bracket_fg = get_fg(opts.highlight_bracket)
-	local index_fg = get_fg(opts.highlight_index)
+---Set up default highlight groups. Uses `default = true` so that themes
+---or users can override any of these by defining the same group themselves.
+local function setup_default_highlights()
+	local bracket_fg = get_fg("Punctuation")
+	local index_fg = get_fg("Number")
+	local name_inactive_bg = get_bg("lualine_c_normal")
+	local name_active_bg = get_bg("Folded")
 
-	local states = {
-		{ suffix = "", bg_group = opts.highlight_name_inactive },
-		{ suffix = "Active", bg_group = opts.highlight_name_active },
-	}
+	-- Inactive state
+	vim.api.nvim_set_hl(0, hl_prefix .. "Bracket", { fg = bracket_fg, bg = name_inactive_bg, default = true })
+	vim.api.nvim_set_hl(0, hl_prefix .. "Index", { fg = index_fg, bg = name_inactive_bg, default = true })
+	vim.api.nvim_set_hl(0, hl_prefix .. "Name", { link = "lualine_c_normal", default = true })
 
-	for _, state in ipairs(states) do
-		local bg = get_bg(state.bg_group)
-		if bracket_fg then
-			vim.api.nvim_set_hl(0, "LualineGrappleBracket" .. state.suffix, { fg = bracket_fg, bg = bg })
-		end
-		if index_fg then
-			vim.api.nvim_set_hl(0, "LualineGrappleIndex" .. state.suffix, { fg = index_fg, bg = bg })
+	-- Active state
+	vim.api.nvim_set_hl(0, hl_prefix .. "BracketActive", { fg = bracket_fg, bg = name_active_bg, default = true })
+	vim.api.nvim_set_hl(0, hl_prefix .. "IndexActive", { fg = index_fg, bg = name_active_bg, default = true })
+	vim.api.nvim_set_hl(0, hl_prefix .. "NameActive", { link = "Folded", default = true })
+end
+
+---Apply user-supplied color overrides from the `colors` config option.
+---These are set without `default = true`, so they take priority over
+---theme-defined and default highlights.
+---@param colors table<string, vim.api.keyset.highlight>
+local function apply_color_overrides(colors)
+	for _, key in ipairs(hl_keys) do
+		if colors[key] then
+			vim.api.nvim_set_hl(0, hl_prefix .. key, colors[key])
 		end
 	end
 end
@@ -54,6 +69,10 @@ end
 function M:init(options)
 	M.super.init(self, options)
 	self.options = vim.tbl_deep_extend("keep", self.options or {}, default_options)
+	setup_default_highlights()
+	if self.options.colors then
+		apply_color_overrides(self.options.colors)
+	end
 end
 
 function M:update_status()
@@ -61,8 +80,6 @@ function M:update_status()
 	if not ok then
 		return ""
 	end
-
-	ensure_highlights(self.options)
 
 	local current_path = vim.api.nvim_buf_get_name(0)
 	local parts = {}
@@ -73,20 +90,19 @@ function M:update_status()
 			local name = vim.fn.fnamemodify(tag.path, ":t")
 			local is_active = tag.path == current_path
 			local suffix = is_active and "Active" or ""
-			local name_hl = is_active and self.options.highlight_name_active or self.options.highlight_name_inactive
 
-			local text = "%#LualineGrappleBracket"
+			local text = "%#" .. hl_prefix .. "Bracket"
 				.. suffix
 				.. "#["
-				.. "%#LualineGrappleIndex"
+				.. "%#" .. hl_prefix .. "Index"
 				.. suffix
 				.. "#"
 				.. i
-				.. "%#LualineGrappleBracket"
+				.. "%#" .. hl_prefix .. "Bracket"
 				.. suffix
 				.. "#]"
-				.. "%#"
-				.. name_hl
+				.. "%#" .. hl_prefix .. "Name"
+				.. suffix
 				.. "#"
 				.. " "
 				.. name
