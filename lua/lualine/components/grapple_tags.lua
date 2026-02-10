@@ -46,19 +46,19 @@ local function setup_default_highlights()
 	local name_inactive_bg = get_bg("lualine_c_normal")
 	local name_active_bg = get_bg("Folded")
 
-	local comment_fg = get_fg("Comment")
+	local muted_fg = get_fg("Comment")
 
 	-- Inactive state
 	vim.api.nvim_set_hl(0, hl_prefix .. "Bracket", { fg = bracket_fg, bg = name_inactive_bg, default = true })
 	vim.api.nvim_set_hl(0, hl_prefix .. "Index", { fg = index_fg, bg = name_inactive_bg, default = true })
 	vim.api.nvim_set_hl(0, hl_prefix .. "Name", { link = "lualine_c_normal", default = true })
-	vim.api.nvim_set_hl(0, hl_prefix .. "Path", { fg = comment_fg, bg = name_inactive_bg, default = true })
+	vim.api.nvim_set_hl(0, hl_prefix .. "Path", { fg = muted_fg, bg = name_inactive_bg, default = true })
 
 	-- Active state
 	vim.api.nvim_set_hl(0, hl_prefix .. "BracketActive", { fg = bracket_fg, bg = name_active_bg, default = true })
 	vim.api.nvim_set_hl(0, hl_prefix .. "IndexActive", { fg = index_fg, bg = name_active_bg, default = true })
 	vim.api.nvim_set_hl(0, hl_prefix .. "NameActive", { link = "Folded", default = true })
-	vim.api.nvim_set_hl(0, hl_prefix .. "PathActive", { fg = comment_fg, bg = name_active_bg, default = true })
+	vim.api.nvim_set_hl(0, hl_prefix .. "PathActive", { fg = muted_fg, bg = name_active_bg, default = true })
 end
 
 ---Apply user-supplied color overrides from the `colors` config option.
