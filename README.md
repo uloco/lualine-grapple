@@ -62,14 +62,8 @@ All options are passed directly in the lualine component table. These are the de
 { "grapple_tags",
   -- Number of tag slots to display
   number_of_tags = 4,
-  -- Highlight group used for bracket color ([, ])
-  highlight_bracket = "Punctuation",
-  -- Highlight group used for the tag index number
-  highlight_index = "Number",
-  -- Highlight group used for the active tag (current buffer)
-  highlight_name_active = "Folded",
-  -- Highlight group used for inactive tags
-  highlight_name_inactive = "lualine_c_normal",
+  -- Override highlight groups inline (optional)
+  colors = nil,
 }
 ```
 
@@ -78,24 +72,87 @@ All options are passed directly in the lualine component table. These are the de
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
 | `number_of_tags` | `integer` | `4` | How many tag slots (1..N) to display. Slots without a tag are simply omitted. |
-| `highlight_bracket` | `string` | `"Punctuation"` | Highlight group whose **foreground** is used for `[` and `]`. |
-| `highlight_index` | `string` | `"Number"` | Highlight group whose **foreground** is used for the tag index number. |
-| `highlight_name_active` | `string` | `"Folded"` | Highlight group applied to the filename of the tag matching the current buffer. Its **background** is also used behind the brackets and index. |
-| `highlight_name_inactive` | `string` | `"lualine_c_normal"` | Highlight group applied to filenames of tags that do not match the current buffer. Its **background** is also used behind the brackets and index. |
+| `colors` | `table\|nil` | `nil` | A table of highlight overrides keyed by group name (see below). Takes priority over theme-defined and default highlights. |
 
-### Example
+Each value in the `colors` table can be either:
+- A **string** — interpreted as a highlight group name to link to (e.g. `"Comment"`)
+- A **table** — a highlight definition (same format as `vim.api.nvim_set_hl`, e.g. `{ fg = "#e0af68", bold = true }`)
 
-Show 6 tags with custom colors:
+The `colors` table accepts the following keys:
+
+| Key | Highlight Group | Description |
+| --- | --- | --- |
+| `Bracket` | `LualineGrappleBracket` | Brackets `[]` (inactive) |
+| `BracketActive` | `LualineGrappleBracketActive` | Brackets `[]` (active) |
+| `Index` | `LualineGrappleIndex` | Tag index number (inactive) |
+| `IndexActive` | `LualineGrappleIndexActive` | Tag index number (active) |
+| `Name` | `LualineGrappleName` | Tag filename (inactive) |
+| `NameActive` | `LualineGrappleNameActive` | Tag filename (active) |
+
+### Examples
+
+Show 6 tags with custom active colors:
 
 ```lua
 { "grapple_tags",
   number_of_tags = 6,
-  highlight_bracket = "Delimiter",
-  highlight_index = "Special",
-  highlight_name_active = "CursorLine",
-  highlight_name_inactive = "Comment",
+  colors = {
+    NameActive = { fg = "#e0af68", bg = "#2e3440", bold = true },
+    BracketActive = { fg = "#7aa2f7", bg = "#2e3440" },
+    IndexActive = { fg = "#7aa2f7", bg = "#2e3440" },
+  },
 }
 ```
+
+Link to existing highlight groups (string shorthand):
+
+```lua
+{ "grapple_tags",
+  colors = {
+    NameActive = "CursorLine",
+    Name = "Comment",
+  },
+}
+```
+
+Override all groups with explicit colors:
+
+```lua
+{ "grapple_tags",
+  colors = {
+    Bracket = { fg = "#616161" },
+    BracketActive = { fg = "#7aa2f7" },
+    Index = { fg = "#616161" },
+    IndexActive = { fg = "#7aa2f7" },
+    Name = { fg = "#616161" },
+    NameActive = { fg = "#e0af68", bold = true },
+  },
+}
+```
+
+## Highlight Groups
+
+The component defines the following highlight groups with sensible defaults. All of them are set with `default = true`, so you can override them in your colorscheme or config and the plugin will not overwrite your settings.
+
+| Highlight Group | Default | Description |
+| --- | --- | --- |
+| `LualineGrappleBracket` | fg from `Punctuation`, bg from `lualine_c_normal` | Brackets `[]` around the tag index (inactive) |
+| `LualineGrappleBracketActive` | fg from `Punctuation`, bg from `Folded` | Brackets `[]` around the tag index (active) |
+| `LualineGrappleIndex` | fg from `Number`, bg from `lualine_c_normal` | Tag index number (inactive) |
+| `LualineGrappleIndexActive` | fg from `Number`, bg from `Folded` | Tag index number (active) |
+| `LualineGrappleName` | links to `lualine_c_normal` | Tag filename (inactive) |
+| `LualineGrappleNameActive` | links to `Folded` | Tag filename (active) |
+
+### Overriding highlights
+
+Override any group in your config (after loading your colorscheme):
+
+```lua
+vim.api.nvim_set_hl(0, "LualineGrappleNameActive", { fg = "#e0af68", bg = "#2e3440", bold = true })
+vim.api.nvim_set_hl(0, "LualineGrappleBracketActive", { fg = "#7aa2f7", bg = "#2e3440" })
+```
+
+Colorscheme authors can also define these groups directly and they will be respected.
 
 ## How It Works
 

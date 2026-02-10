@@ -5,8 +5,9 @@ local default_options = {
 	number_of_tags = 4,
 	--- Override highlight groups via config.
 	--- Keys are: Bracket, BracketActive, Index, IndexActive, Name, NameActive.
-	--- Values are highlight definition tables (same as nvim_set_hl opts).
-	---@type table<string, vim.api.keyset.highlight>|nil
+	--- Values are either a highlight group name (string) or a highlight
+	--- definition table (same as nvim_set_hl opts).
+	---@type table<string, string|vim.api.keyset.highlight>|nil
 	colors = nil,
 }
 
@@ -60,8 +61,13 @@ end
 ---@param colors table<string, vim.api.keyset.highlight>
 local function apply_color_overrides(colors)
 	for _, key in ipairs(hl_keys) do
-		if colors[key] then
-			vim.api.nvim_set_hl(0, hl_prefix .. key, colors[key])
+		local value = colors[key]
+		if value then
+			if type(value) == "string" then
+				vim.api.nvim_set_hl(0, hl_prefix .. key, { link = value })
+			else
+				vim.api.nvim_set_hl(0, hl_prefix .. key, value)
+			end
 		end
 	end
 end
