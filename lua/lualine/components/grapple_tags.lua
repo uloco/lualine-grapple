@@ -4,7 +4,7 @@ local default_options = {
 	--- Number of tag slots to display
 	number_of_tags = 4,
 	--- Override highlight groups via config.
-	--- Keys are: Bracket, BracketActive, Index, IndexActive, Name, NameActive.
+	--- Keys are: Bracket, BracketActive, Index, IndexActive, Name, NameActive, Path, PathActive.
 	--- Values are either a highlight group name (string) or a highlight
 	--- definition table (same as nvim_set_hl opts).
 	---@type table<string, string|vim.api.keyset.highlight>|nil
@@ -20,6 +20,8 @@ local hl_keys = {
 	"IndexActive",
 	"Name",
 	"NameActive",
+	"Path",
+	"PathActive",
 }
 
 ---Get the foreground color (as integer) from a highlight group
@@ -44,15 +46,19 @@ local function setup_default_highlights()
 	local name_inactive_bg = get_bg("lualine_c_normal")
 	local name_active_bg = get_bg("Folded")
 
+	local comment_fg = get_fg("Comment")
+
 	-- Inactive state
 	vim.api.nvim_set_hl(0, hl_prefix .. "Bracket", { fg = bracket_fg, bg = name_inactive_bg, default = true })
 	vim.api.nvim_set_hl(0, hl_prefix .. "Index", { fg = index_fg, bg = name_inactive_bg, default = true })
 	vim.api.nvim_set_hl(0, hl_prefix .. "Name", { link = "lualine_c_normal", default = true })
+	vim.api.nvim_set_hl(0, hl_prefix .. "Path", { fg = comment_fg, bg = name_inactive_bg, default = true })
 
 	-- Active state
 	vim.api.nvim_set_hl(0, hl_prefix .. "BracketActive", { fg = bracket_fg, bg = name_active_bg, default = true })
 	vim.api.nvim_set_hl(0, hl_prefix .. "IndexActive", { fg = index_fg, bg = name_active_bg, default = true })
 	vim.api.nvim_set_hl(0, hl_prefix .. "NameActive", { link = "Folded", default = true })
+	vim.api.nvim_set_hl(0, hl_prefix .. "PathActive", { fg = comment_fg, bg = name_active_bg, default = true })
 end
 
 ---Apply user-supplied color overrides from the `colors` config option.
@@ -90,6 +96,27 @@ function M:init(options)
 	})
 end
 
+---Detect which tag indices have duplicate filenames and need a
+---disambiguating parent path shown alongside the name.
+---@param tags table[] array of {index, path} entries
+---@return table<number, boolean> set of indices that have duplicate basenames
+local function find_duplicates(tags)
+	-- Group indices by basename.
+	local by_name = {}
+	for _, t in ipairs(tags) do
+		local name = vim.fn.fnamemodify(t.path, ":t")
+		by_name[name] = by_name[name] or {}
+		by_name[name][#by_name[name] + 1] = t.index
+	end
+	local dupes = {}
+	for _, indices in pairs(by_name) do
+		if #indices > 1 then
+			for _, idx in ipairs(indices) do
+				dupes[idx] = true
+			end
+		end
+	end
+	return dupes
 end
 
 function M:update_status()
@@ -99,33 +126,53 @@ function M:update_status()
 	end
 
 	local current_path = vim.api.nvim_buf_get_name(0)
-	local parts = {}
 
+	-- Collect all visible tags first so we can detect duplicate names.
+	local tags = {}
 	for i = 1, self.options.number_of_tags do
 		if grapple.exists({ index = i }) then
 			local tag = grapple.find({ index = i })
-			local name = vim.fn.fnamemodify(tag.path, ":t")
-			local is_active = tag.path == current_path
-			local suffix = is_active and "Active" or ""
-
-			local text = "%#" .. hl_prefix .. "Bracket"
-				.. suffix
-				.. "#["
-				.. "%#" .. hl_prefix .. "Index"
-				.. suffix
-				.. "#"
-				.. i
-				.. "%#" .. hl_prefix .. "Bracket"
-				.. suffix
-				.. "#]"
-				.. "%#" .. hl_prefix .. "Name"
-				.. suffix
-				.. "#"
-				.. " "
-				.. name
-
-			parts[#parts + 1] = text
+			tags[#tags + 1] = { index = i, path = tag.path }
 		end
+	end
+
+	local dupes = find_duplicates(tags)
+	local parts = {}
+
+	for _, t in ipairs(tags) do
+		local i = t.index
+		local name = vim.fn.fnamemodify(t.path, ":t")
+		local is_active = t.path == current_path
+		local suffix = is_active and "Active" or ""
+
+		local text = "%#" .. hl_prefix .. "Bracket"
+			.. suffix
+			.. "#["
+			.. "%#" .. hl_prefix .. "Index"
+			.. suffix
+			.. "#"
+			.. i
+			.. "%#" .. hl_prefix .. "Bracket"
+			.. suffix
+			.. "#]"
+			.. "%#" .. hl_prefix .. "Name"
+			.. suffix
+			.. "#"
+			.. " "
+			.. name
+
+		-- For duplicate filenames, append the parent directory in a muted color.
+		if dupes[i] then
+			local rel = vim.fn.fnamemodify(t.path, ":.:h")
+			text = text
+				.. " "
+				.. "%#" .. hl_prefix .. "Path"
+				.. suffix
+				.. "#"
+				.. rel
+		end
+
+		parts[#parts + 1] = text
 	end
 
 	return table.concat(parts, " ")
